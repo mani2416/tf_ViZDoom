@@ -33,6 +33,7 @@ K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
 FEEDBACK = True
+END = 200 + OBSERVE
 
 
 
@@ -179,38 +180,34 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                 y : y_batch,
                 a : a_batch,
                 s : s_batch})
+                
+            if FEEDBACK:
+                #todo store q-value and image every x steps
+                if t % 2 == 0 and imgcnt < maximg:
+                    nc.store_img(image, t, feedback_path)
+                    imgcnt += 1
+                    
+                    #and store the corresponding q-values
+                    qfile = open(qfile_path, 'a')
+                    qfile.write(str(t) + ": Q-Values:" + str(readout_t) + "\n")
+                    qfile.close()  
+                    
+                    if t == END:
+                        print("terminating")
+                        qfile = open(qfile_path, 'a')
+                        qfile.write("***** done *****\n")
+                        qfile.close()
+                        game.close()
+                        break
 
         # update the old values
         s_t = s_t1
         t += 1
         
-        if FEEDBACK:
-            #todo store q-value and image every x steps
-            if t % 5 == 0 and imgcnt < maximg:
-                nc.store_img(image, t, feedback_path)
-                imgcnt += 1
-                
-                #and store the corresponding q-values
-                qfile = open(qfile_path, 'a')
-                qfile.write(str(t) + ": Q-Values:" + str(readout_t) + "\n")
-                qfile.close()         
-        
         # save progress every 10000 iterations
         if t % 100000 == 0:
             saver.save(sess, 'logs/' + GAME + '-dqn', global_step = t)
             print("Saved weights after", t, "steps")
-            
-
-         # print info
-#        state = ""
-#        if t <= OBSERVE:
-#            state = "observe"
-#        elif t > OBSERVE and t <= OBSERVE + EXPLORE:
-#            state = "explore"
-#        else:
-#            state = "train"
-#        print("TIMESTEP", t, "/ STATE", state, "/ EPSILON", epsilon, "/ ACTION", action_index, "/ REWARD", r_t, "/ Q_MAX %e" % np.max(readout_t))
-
       
 def main():
     actions, num_actions, game = initgame()
