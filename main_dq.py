@@ -8,6 +8,7 @@ import tensorflow as tf
 import numpy as np
 from collections import deque
 import nn_calc as nc
+import os
 
 
 IMAGE_SIZE_X = 80 # resolution of the image for the network
@@ -22,7 +23,7 @@ STRIDE2 = 2
 STRIDE3 = 1
 
 GAMMA = 0.95 # decay rate of past observations
-OBSERVE = 1000 # timesteps to observe before training
+OBSERVE = 100 # timesteps to observe before training
 EXPLORE = 1 # frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # final value of epsilon
 INITIAL_EPSILON = 1.0 # starting value of epsilon
@@ -31,6 +32,7 @@ BATCH = 32 # size of minibatch
 K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
+FEEDBACK = True
 
 
 
@@ -47,6 +49,11 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
 # sess      tensorflow-session
 #  
 #==============================================================================
+    if FEEDBACK:
+        feedback_path = "feedback"
+        if not os.path.exists(feedback_path):
+            os.makedirs(feedback_path)
+        qfile_path = feedback_path + "/qfile.txt"    
     
     #tensorflow variable for the actions
     a = tf.placeholder("float", [None, num_actions])
@@ -70,8 +77,8 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     # get first image
     # index zero, because buffer is of form (n,y,x)
     # n -> color? 
-    x_t = game_state.image_buffer[0,:,:]
-    x_t = nc.image_postprocessing(x_t, IMAGE_SIZE_X, IMAGE_SIZE_Y, True)
+    image = game_state.image_buffer[0,:,:]
+    x_t = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X)
     
     # stack images
     s_t = nc.create_state(x_t, STACK)
@@ -93,6 +100,9 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     epsilon = INITIAL_EPSILON
     t = 0
 
+    if FEEDBACK:
+        imgcnt = 0
+        maximg = 100
     
     print("Observing for", OBSERVE, "turns, calibrating afterwards")
     
@@ -128,8 +138,8 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             
             #get the new game state and the new image
             game_state = game.get_state()
-            x_t1 = game_state.image_buffer[0,:,:]
-            x_t1 = nc.image_postprocessing(x_t1, IMAGE_SIZE_X, IMAGE_SIZE_Y, True)
+            image = game_state.image_buffer[0,:,:]
+            x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X)
             
             #stack image with the last three images from the old state to create new state
             s_t1 = nc.update_state(s_t, x_t1)
@@ -174,6 +184,17 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
         s_t = s_t1
         t += 1
         
+        if FEEDBACK:
+            #todo store q-value and image every x steps
+            if t % 5 == 0 and imgcnt < maximg:
+                nc.store_img(image, t, feedback_path)
+                imgcnt += 1
+                
+                #and store the corresponding q-values
+                qfile = open(qfile_path, 'a')
+                qfile.write(str(t) + ": Q-Values:" + str(readout_t) + "\n")
+                qfile.close()         
+        
         # save progress every 10000 iterations
         if t % 100000 == 0:
             saver.save(sess, 'logs/' + GAME + '-dqn', global_step = t)
@@ -194,7 +215,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
 def main():
     actions, num_actions, game = initgame()
     sess = tf.InteractiveSession()
-    s, readout, h_fc1 = createNetwork(num_actions, STACK, 20, IMAGE_SIZE_Y, KERNEL1, STRIDE1, KERNEL2, STRIDE2, KERNEL3, STRIDE3)
+    s, readout, h_fc1 = createNetwork(num_actions, STACK, 20, IMAGE_SIZE_X, KERNEL1, STRIDE1, KERNEL2, STRIDE2, KERNEL3, STRIDE3)
     trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess)
     
 if __name__ == "__main__":
