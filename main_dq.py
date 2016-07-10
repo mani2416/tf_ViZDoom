@@ -33,7 +33,7 @@ K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
 FEEDBACK = True
-END = 200 + OBSERVE
+END = 100000 + OBSERVE
 
 
 
