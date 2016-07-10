@@ -9,6 +9,7 @@ import numpy as np
 from collections import deque
 import nn_calc as nc
 import os
+import time
 
 
 IMAGE_SIZE_X = 80 # resolution of the image for the network
@@ -23,8 +24,8 @@ STRIDE2 = 2
 STRIDE3 = 1
 
 GAMMA = 0.95 # decay rate of past observations
-OBSERVE = 100 # timesteps to observe before training
-EXPLORE = 1 # frames over which to anneal epsilon
+OBSERVE = 100000 # timesteps to observe before training
+EXPLORE = 1000000 # frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # final value of epsilon
 INITIAL_EPSILON = 1.0 # starting value of epsilon
 REPLAY_MEMORY = 590000 # number of previous transitions to remember
@@ -32,8 +33,8 @@ BATCH = 32 # size of minibatch
 K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
-FEEDBACK = True
-END = 100000 + OBSERVE
+FEEDBACK = False
+END = 3000000
 
 
 
@@ -55,6 +56,12 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
         if not os.path.exists(feedback_path):
             os.makedirs(feedback_path)
         qfile_path = feedback_path + "/qfile.txt"    
+    
+    store_path = "logs"
+    if not os.path.exists(store_path):
+        os.makedirs(store_path)
+        
+    reward_path = store_path + "/reward.txt"
     
     #tensorflow variable for the actions
     a = tf.placeholder("float", [None, num_actions])
@@ -103,9 +110,13 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
 
     if FEEDBACK:
         imgcnt = 0
-        maximg = 100
+        maximg = 300
+        END = 300 + OBSERVE
     
     print("Observing for", OBSERVE, "turns, calibrating afterwards")
+    
+    start_time = time.time()
+    reward_all = 0    
     
     while "pigs" != "fly":
         # get the Q-values of every action for the current state
@@ -131,6 +142,9 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             
             # run the selected action and observe next state and reward
             r_t = game.make_action(a_t)
+            reward_all += r_t
+            reward_p_turn = reward_all / (t+1)            
+            
             terminal = game.is_episode_finished()
             
             # new: restart the game if it terminated?
@@ -183,7 +197,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                 
             if FEEDBACK:
                 #todo store q-value and image every x steps
-                if t % 2 == 0 and imgcnt < maximg:
+                if t % 1 == 0 and imgcnt < maximg:
                     nc.store_img(image, t, feedback_path)
                     imgcnt += 1
                     
@@ -207,10 +221,17 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
         # save progress every 10000 iterations
         if t % 100000 == 0:
             saver.save(sess, 'logs/' + GAME + '-dqn', global_step = t)
+
+            current_time = time.time() - start_time
+                
+            reward_file = open(reward_path, 'a')
+            reward_file.write(str(t) + ": Reward: " + str(reward_p_turn) + ", Time: " + str(current_time) + "\n")
+            reward_file.close()             
+            
             print("Saved weights after", t, "steps")
       
 def main():
-    actions, num_actions, game = initgame()
+    actions, num_actions, game = initgame(FEEDBACK)
     sess = tf.InteractiveSession()
     s, readout, h_fc1 = createNetwork(num_actions, STACK, 20, IMAGE_SIZE_X, KERNEL1, STRIDE1, KERNEL2, STRIDE2, KERNEL3, STRIDE3)
     trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess)
