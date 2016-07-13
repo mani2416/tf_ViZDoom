@@ -24,7 +24,7 @@ STRIDE2 = 2
 STRIDE3 = 1
 
 GAMMA = 0.95 # decay rate of past observations
-OBSERVE = 200 # timesteps to observe before training
+OBSERVE = 100 # timesteps to observe before training
 EXPLORE = 1 # frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # final value of epsilon
 INITIAL_EPSILON = 1.0 # starting value of epsilon
@@ -51,7 +51,13 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
 # sess      tensorflow-session
 #  
 #==============================================================================
+    t = 0    
+    
     if FEEDBACK:
+        imgcnt = 0
+        maximg = 100
+        END = 3000 + OBSERVE
+        
         feedback_path = "feedback"
         if not os.path.exists(feedback_path):
             os.makedirs(feedback_path)
@@ -86,8 +92,10 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     # index zero, because buffer is of form (n,y,x)
     # n -> color? 
     image = game_state.image_buffer[0,:,:]
-    x_t = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X)
-    
+    if t % 1 == 0 and imgcnt < maximg:
+        x_t = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, FEEDBACK, t)
+    else:
+        x_t = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, False, t)
     # stack images
     s_t = nc.create_state(x_t, STACK)
         
@@ -106,12 +114,9 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
         
     # define learning parameters
     epsilon = INITIAL_EPSILON
-    t = 0
+    
 
-    if FEEDBACK:
-        imgcnt = 0
-        maximg = 300
-        END = 500 + OBSERVE
+    
     
     print("Observing for", OBSERVE, "turns, calibrating afterwards")
     
@@ -154,7 +159,10 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             #get the new game state and the new image
             game_state = game.get_state()
             image = game_state.image_buffer[0,:,:]
-            x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X)
+            if t % 1 == 0 and imgcnt < maximg:
+                x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, FEEDBACK, t)
+            else:
+                x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, False, t)
             
             #stack image with the last three images from the old state to create new state
             s_t1 = nc.update_state(s_t, x_t1)
@@ -196,6 +204,8 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                 s : s_batch})
                 
             if FEEDBACK:
+                print("t:", t, "Reward / Step:", reward_p_turn)
+                
                 #todo store q-value and image every x steps
                 if t % 1 == 0 and imgcnt < maximg:
                     nc.store_img(image, t, feedback_path)
@@ -206,13 +216,16 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                     qfile.write(str(t) + ": Q-Values:" + str(readout_t) + "\n")
                     qfile.close()  
                     
-                    if t == END:
-                        print("terminating")
-                        qfile = open(qfile_path, 'a')
-                        qfile.write("***** done *****\n")
-                        qfile.close()
-                        game.close()
-                        break
+                if t == END:
+                    print("terminating")
+                    qfile = open(qfile_path, 'a')
+                    qfile.write("***** done *****\n")
+                    qfile.close()
+                    reward_file = open(reward_path, 'a')
+                    reward_file.write(str(t) + ": Reward: " + str(reward_p_turn) + "\n")
+                    reward_file.close() 
+                    game.close()
+                    break
 
         # update the old values
         s_t = s_t1

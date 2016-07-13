@@ -33,59 +33,62 @@ def post_pool(dim_x, dim_y):
     
     return pool_x, pool_y
     
-def image_postprocessing(img, t_size_y, t_size_x):
+def image_postprocessing(img, t_size_y, t_size_x, feedback, t):
+    if feedback:
+        cv2.imwrite('feedback/image_' + str(t) + '.png', img)
     img = cv2.resize(img, (t_size_y, t_size_x))
-    #img = img[t_size_y/2-1:-1,:]
-    
+    if feedback:
+        cv2.imwrite('feedback/image_' + str(t) + '_1.png', img)
     img = img[(t_size_y/2 - 20/2):(t_size_y/2 + 20/2),:]
+    if feedback:
+        cv2.imwrite('feedback/image_' + str(t) + '_2.png', img)
+    
     ret,img = cv2.threshold(img,18,255,cv2.THRESH_BINARY_INV)
+    
+    if feedback:
+        cv2.imwrite('feedback/image_' + str(t) + '_3.png', img)
     
     return img
     
 # add image and depth image
-def image_postprocessing_depth(gray, depth, t_size_y, t_size_x):
+def image_postprocessing_depth(gray, depth, t_size_y, t_size_x, feedback, t):
+    
+    # resize and cut images
     gray = cv2.resize(gray, (t_size_y, t_size_x))
     depth = cv2.resize(depth, (t_size_y, t_size_x))
     gray = gray[t_size_y/2-1:-1,:]
     depth = depth[t_size_y/2-1:-1,:]
     
-    #cv2.imwrite('gray.png', gray)
-    #cv2.imwrite('depth.png', depth)
+    if feedback:
+        cv2.imwrite('feedback/image_' + str(t) + '_gray.png', gray)
+        cv2.imwrite('feedback/image_' + str(t) + '_depth.png', depth)
     
     # threshold filter for the grayscale image
     ret,gray = cv2.threshold(gray,160,255,cv2.THRESH_BINARY)
-    #cv2.imwrite('gray_flt.png', gray)
+    
+    if feedback:
+        cv2.imwrite('feedback/image_' + str(t) + '_gray_flt.png', gray)
     
     
     # custom filter for the depth image
     depth = cv2.bitwise_not(depth)
-    ret, depth = cv2.threshold(depth,165,255,cv2.THRESH_TOZERO)    
+    ret, depth = cv2.threshold(depth,165,255,cv2.THRESH_TOZERO)
+    
+    if feedback:
+        cv2.imwrite('feedback/image_' + str(t) + '_depth_1.png', depth)
     
     height, width = depth.shape
-    #lowest = 255
-    # find the lowest non-zero value
-    #for i in range(0, height):
-    #    for j in range(0, width):
-    #        if depth[i,j] < lowest and depth[i,j] != 0:
-    #            lowest = depth[i,j]
-                
-    #print(lowest)
-    minval = np.min(depth[np.nonzero(depth)])
-    #print(minval)
-    
-    depth[np.nonzero(depth)] -= minval
 
-    # subtract the lowest value from all non-zero values
-    #for i in range(0, height):
-    #    for j in range(0, width):
-    #        if depth[i,j] != 0:
-    #            depth[i,j] = depth[i,j] - minval
-                
-    #cv2.imwrite('depth_flt.png', depth)
+    # subtract lowest gray-value
+    minval = np.min(depth[np.nonzero(depth)])
+    depth[np.nonzero(depth)] -= minval
+    if feedback:
+        cv2.imwrite('feedback/image_' + str(t) + '_depth_2.png', depth)
     
-    #return the added image
+    # return the added image
     result = cv2.add(gray,depth)
-    #cv2.imwrite('combined.png', result)
+    #if feedback:
+    #    cv2.imwrite('feedback/image_' + str(t) + '_filter.png', result)
     
     return result
 
