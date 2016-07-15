@@ -33,7 +33,7 @@ BATCH = 32 # size of minibatch
 K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
-FEEDBACK = True
+FEEDBACK = False
 END = 3000000
 SLEEPTIME = 0#0.028
 
@@ -58,11 +58,8 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     reward_all = 0
     
     if FEEDBACK:
-        OBSERVE = 100
-        EXPLORE = 1
         imgcnt = 0
         maximg = 100
-        END = 1000 + OBSERVE
         
         feedback_path = "feedback"
         if not os.path.exists(feedback_path):
@@ -99,10 +96,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     # index zero, because buffer is of form (n,y,x)
     # n -> color? 
     image = game_state.image_buffer[0,:,:]
-    if t % 1 == 0 and imgcnt < maximg:
-        x_t = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, FEEDBACK, t)
-    else:
-        x_t = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, False, t)
+    x_t = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, False, t)
     # stack images
     s_t = nc.create_state(x_t, STACK)
         
@@ -166,8 +160,11 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             #get the new game state and the new image
             game_state = game.get_state()
             image = game_state.image_buffer[0,:,:]
-            if t % 1 == 0 and imgcnt < maximg:
-                x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, FEEDBACK, t)
+            if FEEDBACK:
+                if t % 1 == 0 and imgcnt < maximg:
+                    x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, FEEDBACK, t)
+                else:
+                    x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, False, t)
             else:
                 x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, False, t)
             
@@ -249,7 +246,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             time.sleep(SLEEPTIME)
         
         # save progress every 10000 iterations
-        if t % 100 == 0:
+        if t % 100000 == 0:
             saver.save(sess, 'logs/' + GAME + '-dqn', global_step = t)
 
             current_time = time.time() - start_time
