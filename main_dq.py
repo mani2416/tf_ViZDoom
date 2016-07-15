@@ -35,6 +35,7 @@ STACK = 1 # number of images stacked to a state
 GAME = "Doom"
 FEEDBACK = True
 END = 3000000
+SLEEPTIME = 0.028
 
 
 
@@ -56,7 +57,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     if FEEDBACK:
         imgcnt = 0
         maximg = 100
-        END = 3000 + OBSERVE
+        END = 1000 + OBSERVE
         
         feedback_path = "feedback"
         if not os.path.exists(feedback_path):
@@ -208,7 +209,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                 
                 #todo store q-value and image every x steps
                 if t % 1 == 0 and imgcnt < maximg:
-                    nc.store_img(image, t, feedback_path)
+                    #nc.store_img(image, t, feedback_path)
                     imgcnt += 1
                     
                     #and store the corresponding q-values
@@ -230,6 +231,9 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
         # update the old values
         s_t = s_t1
         t += 1
+        
+        if SLEEPTIME > 0:
+            time.sleep(SLEEPTIME)
         
         # save progress every 10000 iterations
         if t % 100000 == 0:

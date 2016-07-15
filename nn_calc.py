@@ -59,8 +59,12 @@ def image_postprocessing_depth(gray, depth, t_size_y, t_size_x, feedback, t):
     gray = gray[t_size_y/2-1:-1,:]
     depth = depth[t_size_y/2-1:-1,:]
     
+    color = gray
+    color = cv2.cvtColor(gray, color, cv2.CV_GRAY2RGB);
+    
     if feedback:
         cv2.imwrite('feedback/image_' + str(t) + '_gray.png', gray)
+        cv2.imwrite('feedback/image_' + str(t) + '_color.png', color)
         cv2.imwrite('feedback/image_' + str(t) + '_depth.png', depth)
     
     # threshold filter for the grayscale image
