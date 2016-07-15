@@ -102,7 +102,14 @@ def getGray(game_state):
     blue = game_state.image_buffer[2,:,:]
     gray = cv2.merge((blue,green,red))
     gray = cv2.cvtColor(gray, cv2.COLOR_RGB2GRAY)
-    return gray          
+    return gray    
+
+def getColor(game_state):
+    red = game_state.image_buffer[0,:,:]
+    green = game_state.image_buffer[1,:,:]
+    blue = game_state.image_buffer[2,:,:]
+    color = cv2.merge((blue,green,red))
+    return color
     
 # adds an image to the state variable
 def update_state(state, img):

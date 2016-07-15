@@ -19,13 +19,13 @@ KERNEL1 = 4
 KERNEL2 = 3
 KERNEL3 = 2
 
-STRIDE1 = 4
-STRIDE2 = 2
+STRIDE1 = 2
+STRIDE2 = 1
 STRIDE3 = 1
 
 GAMMA = 0.95 # decay rate of past observations
-OBSERVE = 100 # timesteps to observe before training
-EXPLORE = 1 # frames over which to anneal epsilon
+OBSERVE = 100000 # timesteps to observe before training
+EXPLORE = 500000 # frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # final value of epsilon
 INITIAL_EPSILON = 1.0 # starting value of epsilon
 REPLAY_MEMORY = 590000 # number of previous transitions to remember
@@ -35,7 +35,7 @@ STACK = 1 # number of images stacked to a state
 GAME = "Doom"
 FEEDBACK = True
 END = 3000000
-SLEEPTIME = 0.028
+SLEEPTIME = 0#0.028
 
 
 
@@ -52,9 +52,14 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
 # sess      tensorflow-session
 #  
 #==============================================================================
-    t = 0    
+    t = 0  
+    t_old_save = 0
+    monster_count = 0
+    reward_all = 0
     
     if FEEDBACK:
+        OBSERVE = 100
+        EXPLORE = 1
         imgcnt = 0
         maximg = 100
         END = 1000 + OBSERVE
@@ -62,6 +67,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
         feedback_path = "feedback"
         if not os.path.exists(feedback_path):
             os.makedirs(feedback_path)
+            os.makedirs(feedback_path + "/forVideo")
         qfile_path = feedback_path + "/qfile.txt"    
     
     store_path = "logs"
@@ -121,8 +127,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     
     print("Observing for", OBSERVE, "turns, calibrating afterwards")
     
-    start_time = time.time()
-    reward_all = 0    
+    start_time = time.time()   
     
     while "pigs" != "fly":
         # get the Q-values of every action for the current state
@@ -149,7 +154,8 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             # run the selected action and observe next state and reward
             r_t = game.make_action(a_t)
             reward_all += r_t
-            reward_p_turn = reward_all / (t+1)            
+            if r_t > 10:
+                monster_count += 1
             
             terminal = game.is_episode_finished()
             
@@ -164,6 +170,10 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                 x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, FEEDBACK, t)
             else:
                 x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, False, t)
+            
+            if FEEDBACK:
+                color = nc.getColor(game_state)
+                nc.store_img(color, str(t), feedback_path + "/forVideo")
             
             #stack image with the last three images from the old state to create new state
             s_t1 = nc.update_state(s_t, x_t1)
@@ -205,7 +215,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                 s : s_batch})
                 
             if FEEDBACK:
-                print("t:", t, "Reward / Step:", reward_p_turn)
+                print("t:", t, "Monster shot", monster_count)
                 
                 #todo store q-value and image every x steps
                 if t % 1 == 0 and imgcnt < maximg:
@@ -222,8 +232,11 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                     qfile = open(qfile_path, 'a')
                     qfile.write("***** done *****\n")
                     qfile.close()
+
+                    reward_p_turn = reward_all / (t-t_old_save)                  
+                    
                     reward_file = open(reward_path, 'a')
-                    reward_file.write(str(t) + ": Reward: " + str(reward_p_turn) + "\n")
+                    reward_file.write(str(t) + ": reward " + str(reward_p_turn) + ", monster " + str(monster_count) + "\n")
                     reward_file.close() 
                     game.close()
                     break
@@ -236,14 +249,19 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             time.sleep(SLEEPTIME)
         
         # save progress every 10000 iterations
-        if t % 100000 == 0:
+        if t % 100 == 0:
             saver.save(sess, 'logs/' + GAME + '-dqn', global_step = t)
 
             current_time = time.time() - start_time
+            reward_p_turn = reward_all / (t-t_old_save)
                 
             reward_file = open(reward_path, 'a')
-            reward_file.write(str(t) + ": Reward: " + str(reward_p_turn) + ", Time: " + str(current_time) + "\n")
-            reward_file.close()             
+            reward_file.write(str(t) + ":\n reward " + str(reward_p_turn) + ", time: " + str(current_time) + ", monster " + str(monster_count) + "\n")
+            reward_file.close()     
+            
+            monster_count = 0
+            reward_all = 0
+            t_old_save = t
             
             print("Saved weights after", t, "steps")
       
