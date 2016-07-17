@@ -33,7 +33,7 @@ BATCH = 32 # size of minibatch
 K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
-FEEDBACK = False
+FEEDBACK = True
 END = 1000
 SLEEPTIME = 0#0.028
 
