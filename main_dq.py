@@ -24,8 +24,8 @@ STRIDE2 = 1
 STRIDE3 = 1
 
 GAMMA = 0.95 # decay rate of past observations
-OBSERVE = 100000 # timesteps to observe before training
-EXPLORE = 500000 # frames over which to anneal epsilon
+OBSERVE = 32 # timesteps to observe before training
+EXPLORE = 1 # frames over which to anneal epsilon
 FINAL_EPSILON = 0.05 # final value of epsilon
 INITIAL_EPSILON = 1.0 # starting value of epsilon
 REPLAY_MEMORY = 590000 # number of previous transitions to remember
@@ -34,7 +34,7 @@ K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
 FEEDBACK = False
-END = 3000000
+END = 1000
 SLEEPTIME = 0#0.028
 
 
@@ -59,7 +59,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     
     if FEEDBACK:
         imgcnt = 0
-        maximg = 100
+        maximg = 0
         
         feedback_path = "feedback"
         if not os.path.exists(feedback_path):
@@ -170,7 +170,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             
             if FEEDBACK:
                 color = nc.getColor(game_state)
-                nc.store_img(color, str(t), feedback_path + "/forVideo")
+                nc.store_img(color, nc.get_t(t), feedback_path + "/forVideo")
             
             #stack image with the last three images from the old state to create new state
             s_t1 = nc.update_state(s_t, x_t1)

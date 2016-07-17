@@ -124,6 +124,16 @@ def create_state(img, stack):
         state = np.append(img, state, axis=2)
     return state
     
+def get_t(t):
+    
+    if t < 10:
+        return "000" + str(t)
+    if t < 100:
+        return "00" + str(t)
+    if t < 1000:
+        return "0" + str(t)
+    return str(t)           
+    
 def store_img(img):
     cv2.imwrite('image.png', img)
     
