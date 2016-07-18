@@ -34,7 +34,7 @@ K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
 FEEDBACK = True
-END = 1000
+END = 3000
 SLEEPTIME = 0#0.028
 
 
@@ -180,7 +180,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             if len(D) > REPLAY_MEMORY:
                 D.popleft()
                 
-        if t > OBSERVE:
+        if t > OBSERVE and not FEEDBACK:
             
             # sample a minibatch to train on
             minibatch = random.sample(D, BATCH)
@@ -211,32 +211,34 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                 a : a_batch,
                 s : s_batch})
                 
-            if FEEDBACK:
-                print("t:", t, "Monster shot", monster_count)
+        if FEEDBACK:
+            print("t:", t, "Monster shot", monster_count)
+            
+            #todo store q-value and image every x steps
+            if t % 1 == 0 and imgcnt < maximg:
+                #nc.store_img(image, t, feedback_path)
+                imgcnt += 1
                 
-                #todo store q-value and image every x steps
-                if t % 1 == 0 and imgcnt < maximg:
-                    #nc.store_img(image, t, feedback_path)
-                    imgcnt += 1
+                #and store the corresponding q-values
+                qfile = open(qfile_path, 'a')
+                qfile.write(str(t) + ": Q-Values:" + str(readout_t) + "\n")
+                qfile.close()  
                     
-                    #and store the corresponding q-values
-                    qfile = open(qfile_path, 'a')
-                    qfile.write(str(t) + ": Q-Values:" + str(readout_t) + "\n")
-                    qfile.close()  
-                    
-                if t == END:
-                    print("terminating")
-                    qfile = open(qfile_path, 'a')
-                    qfile.write("***** done *****\n")
-                    qfile.close()
+                
 
-                    reward_p_turn = reward_all / (t-t_old_save)                  
-                    
-                    reward_file = open(reward_path, 'a')
-                    reward_file.write(str(t) + ": reward " + str(reward_p_turn) + ", monster " + str(monster_count) + "\n")
-                    reward_file.close() 
-                    game.close()
-                    break
+        if t == END:
+            print("terminating")
+            qfile = open(qfile_path, 'a')
+            qfile.write("***** done *****\n")
+            qfile.close()
+
+            reward_p_turn = reward_all / (t-t_old_save)                  
+            
+            reward_file = open(reward_path, 'a')
+            reward_file.write(str(t) + ": reward " + str(reward_p_turn) + ", monster " + str(monster_count) + "\n")
+            reward_file.close() 
+            game.close()
+            break
 
         # update the old values
         s_t = s_t1
