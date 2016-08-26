@@ -34,7 +34,7 @@ K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
 FEEDBACK = True
-END = 3000
+END = 100
 SLEEPTIME = 0#0.028
 
 
@@ -59,7 +59,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     
     if FEEDBACK:
         imgcnt = 0
-        maximg = 0
+        maximg = 5
         
         feedback_path = "feedback"
         if not os.path.exists(feedback_path):
