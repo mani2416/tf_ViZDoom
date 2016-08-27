@@ -7,18 +7,23 @@ from initNetwork import *
 import tensorflow as tf
 import numpy as np
 from collections import deque
+
+# implements various calculations
 import nn_calc as nc
+
 import os
 import time
 
-
-IMAGE_SIZE_X = 80 # resolution of the image for the network
+# resolution of the images for the network
+IMAGE_SIZE_X = 80
 IMAGE_SIZE_Y = 80
 
+# kernel size in pixel of the 3 concolutional layers
 KERNEL1 = 4
 KERNEL2 = 3
 KERNEL3 = 2
 
+# stride of the kernels in pixel (x & y)
 STRIDE1 = 2
 STRIDE2 = 1
 STRIDE3 = 1
@@ -33,9 +38,15 @@ BATCH = 32 # size of minibatch
 K = 1 # only select an action every Kth frame, repeat prev for others
 STACK = 1 # number of images stacked to a state
 GAME = "Doom"
+
+# if set, images will be stored and more information displayed
 FEEDBACK = True
+
+# maximum amount of actions until training ends
 END = 100
-SLEEPTIME = 0#0.028
+
+# pause time between actions
+SLEEPTIME = 0
 
 
 
@@ -52,32 +63,37 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
 # sess      tensorflow-session
 #  
 #==============================================================================
-    t = 0  
+    # initialization
+    t = 0 
     t_old_save = 0
     monster_count = 0
     reward_all = 0
     
     if FEEDBACK:
+		# how many images and in what interval they'll be saved
         imgcnt = 0
         maximg = 5
         
+        # path to the images
         feedback_path = "feedback"
         if not os.path.exists(feedback_path):
             os.makedirs(feedback_path)
             os.makedirs(feedback_path + "/forVideo")
         qfile_path = feedback_path + "/qfile.txt"    
     
+    # path to the weights
     store_path = "logs"
     if not os.path.exists(store_path):
         os.makedirs(store_path)
         
+	# path to the reward.txt
     reward_path = store_path + "/reward.txt"
     
     #tensorflow variable for the actions
     a = tf.placeholder("float", [None, num_actions])
     #tensorflow variable for the target in the cost function
     y = tf.placeholder("float", [None])
-    #multiply the action with the result of our network => Q(s,a)
+    #multiply the action with the result of our network
     readout_action = tf.reduce_sum(tf.mul(readout, a), reduction_indices = 1)
     
     #cost function and gradient
@@ -94,7 +110,6 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     
     # get first image
     # index zero, because buffer is of form (n,y,x)
-    # n -> color? 
     image = game_state.image_buffer[0,:,:]
     x_t = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, False, t)
     # stack images
@@ -116,14 +131,14 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
     # define learning parameters
     epsilon = INITIAL_EPSILON
     
-
-    
-    
     print("Observing for", OBSERVE, "turns, calibrating afterwards")
     
+    # measure starting time
     start_time = time.time()   
     
+    # training loop
     while "pigs" != "fly":
+		
         # get the Q-values of every action for the current state
         readout_t = readout.eval(feed_dict = {s : [s_t]})[0]
         # the zero makes an array out of the returend matrix (3,1)
@@ -160,6 +175,8 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             #get the new game state and the new image
             game_state = game.get_state()
             image = game_state.image_buffer[0,:,:]
+            
+            #process images (resizing, cutting & filtering)
             if FEEDBACK:
                 if t % 1 == 0 and imgcnt < maximg:
                     x_t1 = nc.image_postprocessing(image, IMAGE_SIZE_Y, IMAGE_SIZE_X, FEEDBACK, t)
@@ -172,7 +189,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                 color = nc.getColor(game_state)
                 nc.store_img(color, nc.get_t(t), feedback_path + "/forVideo")
             
-            #stack image with the last three images from the old state to create new state
+            #stack image with the images from the old state to create new state
             s_t1 = nc.update_state(s_t, x_t1)
             
             # store the transition in D
@@ -180,6 +197,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
             if len(D) > REPLAY_MEMORY:
                 D.popleft()
                 
+		# train the network
         if t > OBSERVE and not FEEDBACK:
             
             # sample a minibatch to train on
@@ -226,6 +244,7 @@ def trainNetwork(actions, num_actions, game, s, readout, h_fc1, sess):
                     
                 
 
+		# close game
         if t == END:
             print("terminating")
             qfile = open(qfile_path, 'a')

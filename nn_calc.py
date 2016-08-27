@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Mon Jun  6 12:38:13 2016
-
+This file makes all the calculations with openCV
 @author: martin
 """
 
@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import os
 
+# calculates the dimensions of the feature maps after a kernel with stride x & y
 def post_kernel(dim_x, dim_y, stride):
     
     #withPad_x = dim_x + math.floor(2*(kernel_size/2))
@@ -22,7 +23,8 @@ def post_kernel(dim_x, dim_y, stride):
     #print feature_y
     
     return feature_x, feature_y
-    
+
+# calcualtes the dimensions after pooling
 def post_pool(dim_x, dim_y):
     
     pool_x = dim_x/2
@@ -32,17 +34,26 @@ def post_pool(dim_x, dim_y):
     #print pool_y
     
     return pool_x, pool_y
-    
+
+# simple image processing
 def image_postprocessing(img, t_size_y, t_size_x, feedback, t):
+	
     if feedback:
         cv2.imwrite('feedback/image_' + str(t) + '.png', img)
+	
+	# resize image
     img = cv2.resize(img, (t_size_y, t_size_x))
+    
     if feedback:
         cv2.imwrite('feedback/image_' + str(t) + '_1.png', img)
+        
+    # cut image
     img = img[(t_size_y/2 - 20/2):(t_size_y/2 + 20/2),:]
+    
     if feedback:
         cv2.imwrite('feedback/image_' + str(t) + '_2.png', img)
     
+    # filter image
     ret,img = cv2.threshold(img,18,255,cv2.THRESH_BINARY_INV)
     
     if feedback:
@@ -59,6 +70,7 @@ def image_postprocessing_depth(gray, depth, t_size_y, t_size_x, feedback, t):
     gray = gray[t_size_y/2-1:-1,:]
     depth = depth[t_size_y/2-1:-1,:]
     
+    # convert gray image to color for feedback
     color = gray
     color = cv2.cvtColor(gray, color, cv2.CV_GRAY2RGB);
     
@@ -96,6 +108,7 @@ def image_postprocessing_depth(gray, depth, t_size_y, t_size_x, feedback, t):
     
     return result
 
+# calculates the gray-scale image from ViZDoom
 def getGray(game_state):
     red = game_state.image_buffer[0,:,:]
     green = game_state.image_buffer[1,:,:]
@@ -104,6 +117,7 @@ def getGray(game_state):
     gray = cv2.cvtColor(gray, cv2.COLOR_RGB2GRAY)
     return gray    
 
+# calculates the color-image from ViZDoom
 def getColor(game_state):
     red = game_state.image_buffer[0,:,:]
     green = game_state.image_buffer[1,:,:]
@@ -123,7 +137,8 @@ def create_state(img, stack):
     for i in range(1, stack):
         state = np.append(img, state, axis=2)
     return state
-    
+
+# returns t in four digits
 def get_t(t):
     
     if t < 10:
